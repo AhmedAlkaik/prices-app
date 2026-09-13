@@ -11,7 +11,7 @@ def load_data():
 
 df = load_data()
 
-st.title("👓 Mr. Blue Optical - Lens Lookup")
+st.title("👓 Beauty Vision Alex (Mr.Blue) - Lens Lookup")
 st.markdown("Select the lens type and enter the exact SPH and CYL prescription powers.")
 
 # Section 1: Lens Selection
