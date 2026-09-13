@@ -26,7 +26,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("👓 نظارات مستر بلو - أسعار العدسات")
+st.title("👓 Beauty Vision Alex (Mr.Blue) - أسعار العدسات")
 st.markdown("اختر نوع العدسة وأدخل مقاسات SPH و CYL بدقة.")
 
 # Section 1: Lens Selection
