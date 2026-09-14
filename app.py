@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Mobile-optimized configuration
-st.set_page_config(page_title="تسعير عدسات النظارات", page_icon="👓", layout="centered")
+st.set_page_config(page_title="Beauty Vision Alex ( Mr.Blue) اسعار العدسات ", page_icon="👓", layout="centered")
 
 @st.cache_data
 def load_data():
