@@ -1,80 +1,130 @@
 import streamlit as st
 import pandas as pd
 
-# Configure mobile-friendly page layout
-st.set_page_config(page_title="البحث عن أسعار العدسات", page_icon="👓", layout="centered")
+# Mobile-optimized configuration
+st.set_page_config(page_title="تسعير عدسات النظارات", page_icon="👓", layout="centered")
 
 @st.cache_data
 def load_data():
-    # utf-8-sig removes hidden Windows BOM characters
-    # sep="," forces it to ignore Excel's regional settings
+    # Force utf-8-sig to prevent BOM encoding bugs from Windows/Excel
     df = pd.read_csv("prices.csv", encoding="utf-8-sig", sep=",")
-    
-    # Strip any accidental invisible spaces from the column headers
     df.columns = df.columns.str.strip()
     return df
 
 df = load_data()
 
-# Custom CSS to ensure right-to-left alignment for Arabic text
+# RTL layout styling for Arabic interface
 st.markdown("""
     <style>
         .block-container {
             direction: rtl;
             text-align: right;
         }
+        div[data-testid="stMetricValue"] {
+            font-size: 1.6rem;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("👓 Beauty Vision Alex (Mr.Blue) - أسعار العدسات")
-st.markdown("اختر نوع العدسة وأدخل مقاسات SPH و CYL بدقة.")
+st.title("👓 حاسبة أسعار العدسات")
+st.caption("احسب سعر العدسة الفردية أو الزوج بالكامل بدقة.")
 
-# Section 1: Lens Selection
-st.subheader("1. مواصفات العدسة")
-col1, col2 = st.columns(2)
-
-with col1:
-    categories = df['Lens_Category'].unique()
-    selected_category = st.selectbox("الفئة", categories)
-
-with col2:
-    filtered_lenses = df[df['Lens_Category'] == selected_category]['Lens_Name'].unique()
-    selected_lens = st.selectbox("اسم العدسة", filtered_lenses)
-
-st.divider()
-
-# Section 2: Prescription Inputs
-st.subheader("2. مقاسات الكشف")
-col3, col4 = st.columns(2)
-
-with col3:
-    sph_input = st.number_input("SPH (الكروي)", min_value=-24.00, max_value=20.00, value=0.00, step=0.25, format="%.2f")
-
-with col4:
-    cyl_input = st.number_input("CYL (الأسطواني)", min_value=-8.00, max_value=8.00, value=0.00, step=0.25, format="%.2f")
-
-st.divider()
-
-# Section 3: Engine & Output
-if st.button("ابحث عن السعر", type="primary", use_container_width=True):
-    # Filter the dataframe for the specific lens and power boundaries
+# Helper function to query lens price
+def get_lens_quote(lens_name, sph, cyl):
     match = df[
-        (df['Lens_Name'] == selected_lens) & 
-        (df['SPH_Lower'] <= sph_input) & (df['SPH_Upper'] >= sph_input) &
-        (df['CYL_Lower'] <= cyl_input) & (df['CYL_Upper'] >= cyl_input)
+        (df['Lens_Name'] == lens_name) & 
+        (df['SPH_Lower'] <= sph) & (df['SPH_Upper'] >= sph) &
+        (df['CYL_Lower'] <= cyl) & (df['CYL_Upper'] >= cyl)
     ]
-    
     if not match.empty:
-        # Extract the matched data
-        price = match['Price'].iloc[0]
+        pair_price = float(match['Price'].iloc[0])
+        single_price = pair_price / 2.0
         diameter = match['Diameter'].iloc[0]
-        
-        st.success("✅ متاح")
-        
-        # Display large metric cards for easy reading on the shop floor
-        m_col1, m_col2 = st.columns(2)
-        m_col1.metric(label="سعر الجملة", value=f"{int(price)} EGP")
-        m_col2.metric(label="قطر العدسة", value=f"{int(diameter)} mm")
-        
+        return {
+            "available": True,
+            "single_price": single_price,
+            "pair_price": pair_price,
+            "diameter": diameter
+        }
+    return {"available": False}
+
+categories = sorted(df['Lens_Category'].dropna().unique())
+
+# ----------------- العدسة الأولى (R / OD) -----------------
+st.subheader("1. العدسة الأولى (العين اليمنى / R)")
+col1, col2 = st.columns(2)
+with col1:
+    cat_1 = st.selectbox("الفئة", categories, key="cat_1")
+with col2:
+    lenses_1 = df[df['Lens_Category'] == cat_1]['Lens_Name'].unique()
+    lens_1 = st.selectbox("اسم العدسة", lenses_1, key="lens_1")
+
+col3, col4 = st.columns(2)
+with col3:
+    sph_1 = st.number_input("SPH (الكروي)", min_value=-24.00, max_value=20.00, value=0.00, step=0.25, format="%.2f", key="sph_1")
+with col4:
+    cyl_1 = st.number_input("CYL (الأسطواني)", min_value=-8.00, max_value=8.00, value=0.00, step=0.25, format="%.2f", key="cyl_1")
+
+# ----------------- العدسة الثانية (L / OS) -----------------
+st.divider()
+has_second_lens = st.toggle("إضافة العدسة الثانية (العين اليسرى / L)", value=True)
+
+cat_2, lens_2, sph_2, cyl_2 = None, None, None, None
+
+if has_second_lens:
+    same_type = st.checkbox("نفس نوع وخامة العدسة الأولى", value=True)
+    
+    col5, col6 = st.columns(2)
+    if same_type:
+        cat_2 = cat_1
+        lens_2 = lens_1
+        with col5:
+            st.info(f"الفئة: {cat_2}")
+        with col6:
+            st.info(f"النوع: {lens_2}")
     else:
-        st.error("⚠️ خارج المخزون")
+        with col5:
+            cat_2 = st.selectbox("الفئة (العين اليسرى)", categories, key="cat_2")
+        with col6:
+            lenses_2 = df[df['Lens_Category'] == cat_2]['Lens_Name'].unique()
+            lens_2 = st.selectbox("اسم العدسة (العين اليسرى)", lenses_2, key="lens_2")
+
+    col7, col8 = st.columns(2)
+    with col7:
+        sph_2 = st.number_input("SPH (الكروي)", min_value=-24.00, max_value=20.00, value=0.00, step=0.25, format="%.2f", key="sph_2")
+    with col8:
+        cyl_2 = st.number_input("CYL (الأسطواني)", min_value=-8.00, max_value=8.00, value=0.00, step=0.25, format="%.2f", key="cyl_2")
+
+st.divider()
+
+# ----------------- حساب السعر الإجمالي -----------------
+if st.button("احسب السعر", type="primary", use_container_width=True):
+    res_1 = get_lens_quote(lens_1, sph_1, cyl_1)
+    
+    st.markdown("### تفاصيل التكلفة:")
+    
+    # Check First Lens
+    if res_1["available"]:
+        st.success(f"العدسة الأولى: متاح | قطر {int(res_1['diameter'])} مم")
+        st.metric(label="سعر العدسة الأولى (فردي)", value=f"{res_1['single_price']:.1f} EGP")
+    else:
+        st.error("العدسة الأولى: ⚠️ خارج المخزون / غير متاحة في الجدول")
+        
+    # Check Second Lens if enabled
+    if has_second_lens:
+        res_2 = get_lens_quote(lens_2, sph_2, cyl_2)
+        if res_2["available"]:
+            st.success(f"العدسة الثانية: متاح | قطر {int(res_2['diameter'])} مم")
+            st.metric(label="سعر العدسة الثانية (فردي)", value=f"{res_2['single_price']:.1f} EGP")
+        else:
+            st.error("العدسة الثانية: ⚠️ خارج المخزون / غير متاحة في الجدول")
+            
+        # Display Total Pair Price if both or either are available
+        if res_1["available"] and res_2["available"]:
+            total_pair = res_1['single_price'] + res_2['single_price']
+            st.markdown("---")
+            st.metric(label="إجمالي سعر الزوج (عدستين)", value=f"{total_pair:.0f} EGP")
+    else:
+        # If single lens only, show single lens price prominently
+        if res_1["available"]:
+            st.caption(f"سعر الزوج الكامل من هذا المقاس: {res_1['pair_price']:.0f} EGP")
