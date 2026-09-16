@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Mobile-optimized configuration
-st.set_page_config(page_title="Beauty Vision Alex ( Mr.Blue) اسعار العدسات ", page_icon="👓", layout="centered")
+st.set_page_config(page_title="تسعير عدسات النظارات", page_icon="👓", layout="centered")
 
 @st.cache_data
 def load_data():
@@ -21,15 +21,15 @@ st.markdown("""
             text-align: right;
         }
         div[data-testid="stMetricValue"] {
-            font-size: 1.6rem;
+            font-size: 1.4rem;
         }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("👓 Beauty Vision Alex ( Mr.Blue) اسعار العدسات ")
+st.title("👓 حاسبة أسعار العدسات")
 st.caption("احسب سعر العدسة الفردية أو الزوج بالكامل بدقة.")
 
-# Helper function to query lens price
+# Helper function to query lens price and availability
 def get_lens_quote(lens_name, sph, cyl):
     match = df[
         (df['Lens_Name'] == lens_name) & 
@@ -40,11 +40,15 @@ def get_lens_quote(lens_name, sph, cyl):
         pair_price = float(match['Price'].iloc[0])
         single_price = pair_price / 2.0
         diameter = match['Diameter'].iloc[0]
+        # Safely extract availability, defaulting to empty string if missing
+        availability = match['Availability'].iloc[0] if 'Availability' in match.columns else "غير محدد"
+        
         return {
             "available": True,
             "single_price": single_price,
             "pair_price": pair_price,
-            "diameter": diameter
+            "diameter": diameter,
+            "availability": availability
         }
     return {"available": False}
 
@@ -105,8 +109,11 @@ if st.button("احسب السعر", type="primary", use_container_width=True):
     
     # Check First Lens
     if res_1["available"]:
-        st.success(f"العدسة الأولى: متاح | قطر {int(res_1['diameter'])} مم")
-        st.metric(label="سعر العدسة الأولى (فردي)", value=f"{res_1['single_price']:.1f} EGP")
+        st.success("العدسة الأولى: مقاس متاح")
+        m1_col1, m1_col2, m1_col3 = st.columns(3)
+        m1_col1.metric(label="سعر فردي", value=f"{res_1['single_price']:.1f} EGP")
+        m1_col2.metric(label="القطر", value=f"{int(res_1['diameter'])} mm")
+        m1_col3.metric(label="التوافر", value=str(res_1['availability']))
     else:
         st.error("العدسة الأولى: ⚠️ خارج المخزون / غير متاحة في الجدول")
         
@@ -114,8 +121,11 @@ if st.button("احسب السعر", type="primary", use_container_width=True):
     if has_second_lens:
         res_2 = get_lens_quote(lens_2, sph_2, cyl_2)
         if res_2["available"]:
-            st.success(f"العدسة الثانية: متاح | قطر {int(res_2['diameter'])} مم")
-            st.metric(label="سعر العدسة الثانية (فردي)", value=f"{res_2['single_price']:.1f} EGP")
+            st.success("العدسة الثانية: مقاس متاح")
+            m2_col1, m2_col2, m2_col3 = st.columns(3)
+            m2_col1.metric(label="سعر فردي", value=f"{res_2['single_price']:.1f} EGP")
+            m2_col2.metric(label="القطر", value=f"{int(res_2['diameter'])} mm")
+            m2_col3.metric(label="التوافر", value=str(res_2['availability']))
         else:
             st.error("العدسة الثانية: ⚠️ خارج المخزون / غير متاحة في الجدول")
             
