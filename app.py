@@ -6,8 +6,10 @@ st.set_page_config(page_title="تسعير عدسات النظارات", page_ico
 
 @st.cache_data
 def load_data():
-    # Load CSV safely
+    # Force utf-8-sig to prevent BOM encoding bugs from Windows/Excel
     df = pd.read_csv("prices.csv", encoding="utf-8-sig", sep=",")
+    
+    # Strip any accidental invisible spaces from the column headers
     df.columns = df.columns.str.strip()
     
     # 1. HUMAN LOGIC: Classify every row in the CSV into its specific Sign Table
@@ -41,20 +43,28 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("👓 Beauty Vision Alex. (Mr.Blue) اسعار العدسات")
+st.title("👓 حاسبة أسعار العدسات")
 st.caption("احسب سعر العدسة الفردية أو الزوج بالكامل بدقة.")
 
-# Helper function using Human Search Logic
+# Helper function using Human Search Logic & Transposition
 def get_lens_quote(lens_name, sph, cyl):
     transposed_msg = ""
     
-    # 2. OPTICAL TRANSPOSITION: If prescription is (-/+) we convert to (-/-)
+    # OPTICAL TRANSPOSITION RULES
+    
+    # Rule 1: No (-/+) tables exist in the catalog. Always transpose.
     if sph < 0 and cyl > 0:
         sph = sph + cyl
         cyl = -cyl
-        transposed_msg = f" (تم تحويل المقاس إلى SPH {sph:.2f} / CYL {cyl:.2f})"
+        transposed_msg = f" (تم التحويل إلى SPH {sph:.2f} / CYL {cyl:.2f})"
         
-    # 3. IDENTIFY TARGET TABLE (+/+, -/-, +/-)
+    # Rule 2: For (+/-) prescriptions, if Sphere >= absolute Cylinder, transpose to (+/+)
+    elif sph > 0 and cyl < 0 and sph >= abs(cyl):
+        sph = sph + cyl
+        cyl = -cyl
+        transposed_msg = f" (تم التحويل إلى SPH {sph:.2f} / CYL {cyl:.2f})"
+        
+    # IDENTIFY TARGET TABLE (+/+, -/-, +/-)
     if sph >= 0 and cyl >= 0:
         target_table = "+/+"
     elif sph <= 0 and cyl <= 0:
@@ -64,7 +74,7 @@ def get_lens_quote(lens_name, sph, cyl):
     else:
         target_table = "Mixed"
         
-    # 4. FILTER: Go to Table -> Find CYL bounds -> Find SPH bounds
+    # FILTER: Go to Table -> Find CYL bounds -> Find SPH bounds
     match = df[
         (df['Lens_Name'] == lens_name) & 
         (df['Sign_Table'] == target_table) &
@@ -76,6 +86,7 @@ def get_lens_quote(lens_name, sph, cyl):
         pair_price = float(match['Price'].iloc[0])
         single_price = pair_price / 2.0
         diameter = match['Diameter'].iloc[0]
+        # Safely extract availability, defaulting to empty string if missing
         availability = match['Availability'].iloc[0] if 'Availability' in match.columns else "غير محدد"
         
         return {
@@ -145,25 +156,25 @@ if st.button("احسب السعر", type="primary", use_container_width=True):
     
     # Check First Lens
     if res_1["available"]:
-        st.success(f"العدسة الأولى: مقاس متاح {res_1['transposed_msg']}")
+        st.success(f"العدسة الأولى: مقاس متاح{res_1['transposed_msg']}")
         m1_col1, m1_col2, m1_col3 = st.columns(3)
         m1_col1.metric(label="سعر فردي", value=f"{res_1['single_price']:.1f} EGP")
         m1_col2.metric(label="القطر", value=f"{int(res_1['diameter'])} mm")
         m1_col3.metric(label="التوافر", value=str(res_1['availability']))
     else:
-        st.error(f"العدسة الأولى: ⚠️ خارج المخزون / غير متاحة في الجدول {res_1['transposed_msg']}")
+        st.error(f"العدسة الأولى: ⚠️ خارج المخزون / غير متاحة في الجدول{res_1['transposed_msg']}")
         
     # Check Second Lens if enabled
     if has_second_lens:
         res_2 = get_lens_quote(lens_2, sph_2, cyl_2)
         if res_2["available"]:
-            st.success(f"العدسة الثانية: مقاس متاح {res_2['transposed_msg']}")
+            st.success(f"العدسة الثانية: مقاس متاح{res_2['transposed_msg']}")
             m2_col1, m2_col2, m2_col3 = st.columns(3)
             m2_col1.metric(label="سعر فردي", value=f"{res_2['single_price']:.1f} EGP")
             m2_col2.metric(label="القطر", value=f"{int(res_2['diameter'])} mm")
             m2_col3.metric(label="التوافر", value=str(res_2['availability']))
         else:
-            st.error(f"العدسة الثانية: ⚠️ خارج المخزون / غير متاحة في الجدول {res_2['transposed_msg']}")
+            st.error(f"العدسة الثانية: ⚠️ خارج المخزون / غير متاحة في الجدول{res_2['transposed_msg']}")
             
         # Display Total Pair Price if both or either are available
         if res_1["available"] and res_2["available"]:
@@ -171,5 +182,6 @@ if st.button("احسب السعر", type="primary", use_container_width=True):
             st.markdown("---")
             st.metric(label="إجمالي سعر الزوج (عدستين)", value=f"{total_pair:.0f} EGP")
     else:
+        # If single lens only, show single lens price prominently
         if res_1["available"]:
             st.caption(f"سعر الزوج الكامل من هذا المقاس: {res_1['pair_price']:.0f} EGP")
