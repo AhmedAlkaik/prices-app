@@ -43,7 +43,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("👓 حاسبة أسعار العدسات")
+st.title("👓 Beauty Vision Alex. (Mr.Blue) اسعار العدسات")
 st.caption("احسب سعر العدسة الفردية أو الزوج بالكامل بدقة.")
 
 # Helper function using Human Search Logic & Transposition
